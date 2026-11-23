@@ -35,12 +35,7 @@ button{cursor:pointer}
 .felt{background:repeating-linear-gradient(to bottom,transparent 0 9px,rgba(0,0,0,.55) 9px 11px),var(--felt);border-radius:4px;padding:16px 14px 14px;text-align:center}
 .felt .line{display:block;font-family:var(--display);font-weight:800;color:#F7EFE3;text-transform:uppercase;letter-spacing:.08em;line-height:1.05}
 .felt .l1{font-size:15px;color:#DCCFC0;letter-spacing:.32em}
-.felt .l2{font-size:44px;margin:4px 0 8px}
-.felt .l3{font-size:22px}
-.felt .l3 b{color:#E8BC5A;font-weight:900}
-.letter{display:inline-block}
-@media (prefers-reduced-motion:no-preference){ .felt.flip .l3 .letter{animation:flip .38s both} }
-@keyframes flip{from{transform:rotateX(90deg);opacity:0}to{transform:none;opacity:1}}
+.felt .l2{font-size:44px;margin:4px 0 2px}
 
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:rgba(59,23,20,.14);border-radius:999px;padding:4px;margin-bottom:12px}
 .tabs button{border:0;background:none;padding:10px;border-radius:999px;font-weight:600;color:var(--ink-soft)}
@@ -48,18 +43,9 @@ button{cursor:pointer}
 .row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
 .search{flex:1;background:rgba(255,246,230,.45);border:1px solid rgba(59,23,20,.25);border-radius:10px;padding:10px 12px;color:var(--ink)}
 .search::placeholder{color:var(--ink-soft);opacity:.75}
-.filters button{border:1.5px solid rgba(59,23,20,.35);background:none;border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink)}
+.filters button{flex:1;border:1.5px solid rgba(59,23,20,.35);background:none;border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink)}
 .filters button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--beige)}
 
-.showing{margin:4px 0 22px}
-.showing h2,.list-head{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.01em;margin:0 0 4px}
-.showing p{margin:0 0 10px;color:var(--ink-soft);font-size:14px}
-.reel{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 6px}
-.reel::-webkit-scrollbar{display:none}
-.bill{flex:0 0 152px;scroll-snap-align:start;background:var(--beige);border-top:4px solid var(--gold);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:6px}
-.bill .when{font-size:12px;font-weight:700;color:var(--red-ink)}
-.bill .t{font-family:var(--display);font-weight:800;font-size:20px;line-height:1.05}
-.bill .note{font-size:12px;font-weight:600;color:var(--gold-ink)}
 
 .list-head{display:flex;justify-content:space-between;align-items:baseline}
 .list-head small{font-family:var(--body);font-size:13px;font-weight:600;color:var(--ink-soft)}
@@ -87,7 +73,6 @@ footer a{color:inherit}
     <div class="felt" id="felt">
       <span class="line l1">Jackson's</span>
       <span class="line l2">Screening Room</span>
-      <span class="line l3" id="tally"></span>
     </div>
   </header>
 
@@ -105,11 +90,6 @@ footer a{color:inherit}
     <button data-f="seen" aria-pressed="false">Seen</button>
   </div>
 
-  <section class="showing" id="showing">
-    <h2>Now showing</h2>
-    <p>In theaters now and opening soon.</p>
-    <div class="reel" id="reel"></div>
-  </section>
 
   <main>
     <div class="list-head"><span id="listTitle">To see</span><small id="listCount"></small></div>
@@ -117,8 +97,8 @@ footer a{color:inherit}
   </main>
 
   <footer>
-    Last updated <span id="updated"></span>.<br>
-    Film data from <a href="https://www.themoviedb.org/">TMDB</a>.
+    Last updated <span id="updated"></span>.
+    <span id="credit"><br>Film data from <a href="https://www.themoviedb.org/">TMDB</a>.</span>
   </footer>
 </div>
 
@@ -181,15 +161,8 @@ const BOOKS = [
  ["Extreme Ownership","2015-10",null],["East of Eden","1952-09",null],["Field of Dreams","",null],
  ["As a Man Thinketh","1903",null],["The Wealth Money Can't Buy","2024",null]
 ];
-/* Fallback for "Now showing" if TMDB can't be reached. */
-const SHOWING_FALLBACK = [
- {t:"The Hunger Games: Sunrise on the Reaping",d:"2026-11-20"},{t:"Godzilla Minus Zero",d:"2026-11-06"},
- {t:"Focker In-Law",d:"2026-11-25"},{t:"Violent Night 2",d:"2026-12-04"},
- {t:"Dune: Part Three",d:"2026-12-18",note:"See it in IMAX"},{t:"Avengers: Doomsday",d:"2026-12-18"}
-];
 /* ====================================================================== */
 
-const TMDB_KEY="46c301c5a304aaed09412003067f675b", TMDB="https://api.themoviedb.org/3";
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -197,30 +170,10 @@ const fmtRelease=r=>{ if(!r) return ""; const m=/^(\d{4})-(\d{2})/.exec(r); retu
 const toItems=arr=>arr.map(([title,release,score],i)=>({title,release,score,seen:score!==null,order:i}));
 const DATA={film:toItems(FILMS),book:toItems(BOOKS)};
 const W={film:{todo:"To see",done:"Seen",tallyDone:"seen"},book:{todo:"To read",done:"Read",tallyDone:"read"}};
-let tab="film", filter="todo", query="", showing=SHOWING_FALLBACK;
+let tab="film", filter="todo", query="";
 
 { const d=new Date(UPDATED+"T12:00:00"); $("updated").textContent=`${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
 
-function renderTally(animate){
-  const items=DATA[tab], done=items.filter(i=>i.seen).length;
-  const parts=[[String(done),1],[` ${W[tab].tallyDone}  /  `,0],[String(items.length-done),1],[" to go",0]];
-  const el=$("tally"); el.innerHTML=""; let k=0;
-  for(const [text,bold] of parts){
-    const holder=bold?document.createElement("b"):el;
-    for(const ch of text){ const sp=document.createElement("span"); sp.className="letter"; sp.textContent=ch===" "?" ":ch; sp.style.animationDelay=(k++*18)+"ms"; holder.appendChild(sp); }
-    if(bold) el.appendChild(holder);
-  }
-  const f=$("felt"); f.classList.remove("flip"); if(animate){ void f.offsetWidth; f.classList.add("flip"); }
-}
-function renderShowing(){
-  $("showing").hidden=!(tab==="film"&&filter==="todo");
-  const today=new Date(); today.setHours(23,59,59,999);
-  $("reel").innerHTML=showing.map(s=>{
-    const d=new Date(s.d+"T12:00:00"), open=d<=today;
-    return `<div class="bill"><span class="when">${open?"In theaters":"Opens "+MON[d.getMonth()]+" "+d.getDate()}</span>
-      <span class="t">${esc(s.t)}</span>${s.note?`<span class="note">${esc(s.note)}</span>`:""}</div>`;
-  }).join("");
-}
 function renderList(){
   const w=W[tab];
   document.querySelector('[data-f="todo"]').textContent=w.todo;
@@ -229,6 +182,7 @@ function renderList(){
   const total=items.length;
   if(query) items=items.filter(i=>i.title.toLowerCase().includes(query));
   if(filter==="seen") items=[...items].sort((a,b)=>(b.score||0)-(a.score||0)||a.order-b.order);
+  else if(tab==="film") items=[...items].sort((a,b)=>(b.release||"").localeCompare(a.release||"")||a.order-b.order);
   $("listTitle").textContent=filter==="seen"?`${w.done}, ranked`:w.todo;
   $("listCount").textContent=query?`${items.length} of ${total}`:`${total}`;
   $("list").innerHTML=items.length?items.map(i=>{
@@ -239,29 +193,16 @@ function renderList(){
     return `<li class="ticket"><div class="main"><span class="title">${esc(i.title)}</span>${rel?`<span class="date">${esc(rel)}</span>`:""}</div><div class="stub">${stub}</div></li>`;
   }).join(""):`<li class="empty">${query?"No matches. Clear the search to see the whole list.":"Nothing here yet."}</li>`;
 }
-function render(animate){ renderTally(animate); renderShowing(); renderList(); }
+function render(){ $("credit").hidden=tab!=="film"; renderList(); }
 
-async function loadShowing(){
-  try{
-    const q=`api_key=${TMDB_KEY}&language=en-US&region=US&page=1`;
-    const [np,up]=await Promise.all([`${TMDB}/movie/now_playing?${q}`,`${TMDB}/movie/upcoming?${q}`].map(u=>fetch(u).then(r=>r.json())));
-    const today=new Date().toISOString().slice(0,10), byPop=(a,b)=>b.popularity-a.popularity;
-    const now=(np.results||[]).filter(m=>m.release_date&&m.release_date<=today).sort(byPop).slice(0,6);
-    const ids=new Set(now.map(m=>m.id));
-    const soon=(up.results||[]).filter(m=>m.release_date>today&&!ids.has(m.id)).sort(byPop).slice(0,6).sort((a,b)=>a.release_date.localeCompare(b.release_date));
-    const live=[...now,...soon].map(m=>({t:m.title,d:m.release_date}));
-    if(live.length>=4){ showing=live; renderShowing(); }
-  }catch(e){ /* keep the fallback list */ }
-}
 
 $("q").addEventListener("input",e=>{ query=e.target.value.trim().toLowerCase(); renderList(); });
 function setFilter(f){ filter=f; document.querySelectorAll("#filters button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===f)); }
-$("filters").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; setFilter(b.dataset.f); renderShowing(); renderList(); });
-function setTab(t){ tab=t; $("tab-film").setAttribute("aria-selected",t==="film"); $("tab-book").setAttribute("aria-selected",t==="book"); render(true); }
+$("filters").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; setFilter(b.dataset.f); renderList(); });
+function setTab(t){ tab=t; $("tab-film").setAttribute("aria-selected",t==="film"); $("tab-book").setAttribute("aria-selected",t==="book"); render(); }
 $("tab-film").onclick=()=>setTab("film"); $("tab-book").onclick=()=>setTab("book");
 
-render(true);
-loadShowing();
+render();
 </script>
 </body>
 </html>
