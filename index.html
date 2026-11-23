@@ -167,6 +167,7 @@ const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","De
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmtRelease=r=>{ if(!r) return ""; const m=/^(\d{4})-(\d{2})/.exec(r); return m?`${MON[+m[2]-1]} ${m[1]}`:r; };
+const relKey=r=>{ const m=/^(\d{4})(-\d{2})?/.exec(r||""); if(m) return m[0]; const y=/(\d+)/.exec(r||""); return y?y[1].padStart(4,"0"):""; };
 const toItems=arr=>arr.map(([title,release,score],i)=>({title,release,score,seen:score!==null,order:i}));
 const DATA={film:toItems(FILMS),book:toItems(BOOKS)};
 const W={film:{todo:"To see",done:"Seen",tallyDone:"seen"},book:{todo:"To read",done:"Read",tallyDone:"read"}};
@@ -182,7 +183,7 @@ function renderList(){
   const total=items.length;
   if(query) items=items.filter(i=>i.title.toLowerCase().includes(query));
   if(filter==="seen") items=[...items].sort((a,b)=>(b.score||0)-(a.score||0)||a.order-b.order);
-  else if(tab==="film") items=[...items].sort((a,b)=>(b.release||"").localeCompare(a.release||"")||a.order-b.order);
+  else items=[...items].sort((a,b)=>relKey(b.release).localeCompare(relKey(a.release))||a.order-b.order);
   $("listTitle").textContent=filter==="seen"?`${w.done}, ranked`:w.todo;
   $("listCount").textContent=query?`${items.length} of ${total}`:`${total}`;
   $("list").innerHTML=items.length?items.map(i=>{
