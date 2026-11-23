@@ -118,6 +118,16 @@ input[type=range]{width:100%;accent-color:var(--red-ink);height:32px;margin:4px 
 .addbar input::placeholder{color:#8C6F5C}
 .addbar button{border:0;background:var(--gold);color:var(--ink);font-weight:700;border-radius:10px;padding:0 16px}
 
+.addbar .wrap{position:relative}
+.suggest{position:absolute;left:16px;right:16px;bottom:calc(100% + 18px);background:var(--beige);border-radius:12px;box-shadow:0 -6px 24px rgba(34,19,15,.28);max-height:52vh;overflow-y:auto;padding:6px}
+.suggest[hidden]{display:none}
+.suggest button{display:grid;grid-template-columns:40px 1fr;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:7px 8px;border-radius:8px;color:var(--ink)}
+.suggest button:hover,.suggest button:focus-visible{background:var(--beige-2)}
+.suggest img,.suggest .noimg{width:40px;height:60px;border-radius:3px;object-fit:cover;background:var(--beige-2)}
+.suggest .st{font-family:var(--display);font-weight:800;font-size:18px;line-height:1.05;display:block}
+.suggest .ss{font-size:12px;font-weight:600;color:var(--ink-soft);display:block;margin-top:2px}
+.suggest .plain{grid-template-columns:1fr;font-size:14px;font-weight:600;color:var(--ink-soft);border-top:1px dashed rgba(59,23,20,.25);border-radius:0 0 8px 8px}
+.suggest .status{padding:10px 8px;font-size:14px;color:var(--ink-soft)}
 footer{margin:28px 0 10px;text-align:center;font-size:13px;color:var(--ink-soft)}
 footer button{border:0;background:none;color:var(--ink);text-decoration:underline;font-size:13px;padding:4px 6px}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--beige);padding:10px 14px;border-radius:8px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;white-space:nowrap}
@@ -161,6 +171,7 @@ footer button{border:0;background:none;color:var(--ink);text-decoration:underlin
   </main>
 
   <footer>
+    Film data from <a href="https://www.themoviedb.org/" style="color:inherit">TMDB</a>. Book data from <a href="https://openlibrary.org/" style="color:inherit">Open Library</a>.<br>
     Saved on this device.
     <button id="exportBtn">Copy backup</button>
     <button id="importBtn">Restore backup</button>
@@ -169,9 +180,10 @@ footer button{border:0;background:none;color:var(--ink);text-decoration:underlin
 
 <div class="addbar">
   <div class="wrap">
+    <div class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></div>
     <form id="addForm">
       <label class="sr" for="newTitle">Title</label>
-      <input id="newTitle" placeholder="Add a film" autocomplete="off" enterkeyhint="done">
+      <input id="newTitle" placeholder="Add a film" autocomplete="off" enterkeyhint="done" aria-controls="suggest">
       <button type="submit">Add</button>
     </form>
   </div>
@@ -247,6 +259,37 @@ const SHOWING = [
  {t:"Avengers: Doomsday", d:"2026-12-18"}
 ];
 
+/* ---------- Live data ---------- */
+const TMDB_KEY="46c301c5a304aaed09412003067f675b";
+const TMDB="https://api.themoviedb.org/3";
+let showing=SHOWING;
+async function loadShowing(){
+  try{
+    const q=`api_key=${TMDB_KEY}&language=en-US&region=US&page=1`;
+    const [np,up]=await Promise.all([fetch(`${TMDB}/movie/now_playing?${q}`),fetch(`${TMDB}/movie/upcoming?${q}`)].map(p=>p.then(r=>r.json())));
+    const today=new Date().toISOString().slice(0,10);
+    const byPop=(a,b)=>b.popularity-a.popularity;
+    const now=(np.results||[]).filter(m=>m.release_date&&m.release_date<=today).sort(byPop).slice(0,6);
+    const ids=new Set(now.map(m=>m.id));
+    const soon=(up.results||[]).filter(m=>m.release_date>today&&!ids.has(m.id)).sort(byPop).slice(0,6).sort((a,b)=>a.release_date.localeCompare(b.release_date));
+    const live=[...now,...soon].map(m=>({t:m.title,d:m.release_date}));
+    if(live.length>=4){ showing=live; live.forEach(s=>RELEASE["film:"+slug(s.t)]=s.d.slice(0,7)); renderShowing(); }
+  }catch(e){ /* keep the built-in list */ }
+}
+async function searchFilms(q){
+  const r=await fetch(`${TMDB}/search/movie?api_key=${TMDB_KEY}&language=en-US&include_adult=false&page=1&query=${encodeURIComponent(q)}`);
+  const j=await r.json();
+  return (j.results||[]).slice(0,6).map(m=>{ const rel=(m.release_date||"").slice(0,7);
+    return {title:m.title,release:rel,img:m.poster_path?`https://image.tmdb.org/t/p/w92${m.poster_path}`:null,sub:rel?fmtRelease(rel):"Release date unknown"}; });
+}
+async function searchBooks(q){
+  const r=await fetch(`https://openlibrary.org/search.json?limit=6&fields=title,author_name,first_publish_year,cover_i&q=${encodeURIComponent(q)}`);
+  const j=await r.json();
+  return (j.docs||[]).map(b=>({title:b.title,release:b.first_publish_year?String(b.first_publish_year):"",
+    img:b.cover_i?`https://covers.openlibrary.org/b/id/${b.cover_i}-S.jpg`:null,
+    sub:[b.author_name&&b.author_name[0],b.first_publish_year].filter(Boolean).join(", ")||"Details unknown"}));
+}
+
 /* ---------- State ---------- */
 const KEY = "screening-room-v1";
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
@@ -296,12 +339,12 @@ function renderTally(animate){
 function renderShowing(){
   $("showing").hidden = !(tab==="film" && filter==="todo");
   const today=new Date(); today.setHours(23,59,59,999);
-  $("reel").innerHTML=SHOWING.map(s=>{
+  $("reel").innerHTML=showing.map(s=>{
     const d=new Date(s.d+"T12:00:00"), open=d<=today;
     const onList=state.items.some(i=>i.id==="film:"+slug(s.t));
     return `<div class="bill"><span class="when">${open?"In theaters":"Opens "+MON[d.getMonth()]+" "+d.getDate()}</span>
       <span class="t">${esc(s.t)}</span>${s.note?`<span class="note">${esc(s.note)}</span>`:""}
-      <button data-show="${esc(s.t)}" ${onList?"disabled":""}>${onList?"On your list":"Add to list"}</button></div>`;
+      <button data-show="${esc(s.t)}" data-rel="${s.d.slice(0,7)}" ${onList?"disabled":""}>${onList?"On your list":"Add to list"}</button></div>`;
   }).join("");
 }
 
@@ -375,16 +418,16 @@ $("list").addEventListener("click",e=>{
   }
   if(act==="remove"){ state.items=state.items.filter(i=>i!==it); if(!state.removed.includes(it.id)) state.removed.push(it.id); openId=null; save(); render(true); toast(`Removed ${it.title}`); }
 });
-$("reel").addEventListener("click",e=>{ const b=e.target.closest("button[data-show]"); if(b) addItem(b.dataset.show,"film","theater"); });
-function addItem(title,type,source){
+$("reel").addEventListener("click",e=>{ const b=e.target.closest("button[data-show]"); if(b) addItem(b.dataset.show,"film","theater",b.dataset.rel); });
+function addItem(title,type,source,release,poster){
   title=title.trim(); if(!title) return;
   const id=type+":"+slug(title);
   if(state.items.some(i=>i.id===id)){ toast(`${title} is already on your list`); return; }
-  state.items.unshift({id,type,title,seen:false,score:null,added:source||new Date().toISOString(),seenOn:null});
+  state.items.unshift({id,type,title,seen:false,score:null,added:source||new Date().toISOString(),seenOn:null,release:release||RELEASE[id]||"",poster:poster||null});
   state.removed=state.removed.filter(r=>r!==id);
   save(); setFilter("todo"); render(true); toast(`Added ${title}`);
 }
-$("addForm").addEventListener("submit",e=>{ e.preventDefault(); addItem($("newTitle").value,tab); $("newTitle").value=""; });
+$("addForm").addEventListener("submit",e=>{ e.preventDefault(); addItem($("newTitle").value,tab); $("newTitle").value=""; hideSuggest(); });
 $("q").addEventListener("input",e=>{ query=e.target.value.trim().toLowerCase(); renderList(); });
 function setFilter(f){ filter=f; document.querySelectorAll("#filters button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===f)); }
 $("filters").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; setFilter(b.dataset.f); openId=null; renderShowing(); renderList(); });
@@ -402,7 +445,38 @@ $("importBtn").onclick=()=>{
   catch(e){ toast("That backup couldn't be read. Copy it again and retry."); }
 };
 
+/* ---------- Title suggestions ---------- */
+let sTimer=null, sSeq=0, sResults=[];
+function hideSuggest(){ $("suggest").hidden=true; $("suggest").innerHTML=""; }
+function showStatus(msg){ const el=$("suggest"); el.innerHTML=`<div class="status">${esc(msg)}</div>`; el.hidden=false; }
+$("newTitle").addEventListener("input",e=>{
+  const q=e.target.value.trim(); clearTimeout(sTimer);
+  if(q.length<2){ hideSuggest(); return; }
+  sTimer=setTimeout(async()=>{
+    const seq=++sSeq; showStatus("Searching…");
+    try{
+      const res=await (tab==="film"?searchFilms(q):searchBooks(q));
+      if(seq!==sSeq) return;
+      sResults=res;
+      $("suggest").innerHTML = res.map((r,i)=>`<button type="button" role="option" data-i="${i}">${r.img?`<img src="${esc(r.img)}" alt="" loading="lazy">`:`<span class="noimg"></span>`}<span><span class="st">${esc(r.title)}</span><span class="ss">${esc(r.sub)}</span></span></button>`).join("")
+        + `<button type="button" class="plain" data-i="-1">Add “${esc(q)}” as typed</button>`;
+      $("suggest").hidden=false;
+    }catch(err){ if(seq===sSeq) showStatus("Search isn't available right now. Tap Add to save the title as typed."); }
+  },250);
+});
+$("suggest").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-i]"); if(!b) return;
+  const i=+b.dataset.i;
+  if(i<0) addItem($("newTitle").value,tab);
+  else { const r=sResults[i]; addItem(r.title,tab,null,r.release,r.img); }
+  $("newTitle").value=""; hideSuggest();
+});
+document.addEventListener("click",e=>{ if(!e.target.closest(".addbar")) hideSuggest(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") hideSuggest(); });
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{ hideSuggest(); $("newTitle").value=""; }));
+
 render(true);
+loadShowing();
 </script>
 </body>
 </html>
