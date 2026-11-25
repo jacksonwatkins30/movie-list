@@ -37,7 +37,7 @@ button{cursor:pointer}
 .felt .l1{font-size:15px;color:#DCCFC0;letter-spacing:.32em}
 .felt .l2{font-size:44px;margin:4px 0 2px}
 
-.tabs{display:grid;grid-template-columns:1fr 1fr;background:rgba(59,23,20,.14);border-radius:999px;padding:4px;margin-bottom:12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:rgba(59,23,20,.14);border-radius:999px;padding:4px;margin-bottom:12px}
 .tabs button{border:0;background:none;padding:10px;border-radius:999px;font-weight:600;color:var(--ink-soft)}
 .tabs button[aria-selected="true"]{background:var(--beige);color:var(--ink);box-shadow:0 1px 3px rgba(59,23,20,.2)}
 .row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
@@ -79,6 +79,7 @@ footer a{color:inherit}
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-film" aria-selected="true">Films</button>
     <button role="tab" id="tab-book" aria-selected="false">Books</button>
+    <button role="tab" id="tab-play" aria-selected="false">Plays</button>
   </div>
 
   <div class="row">
@@ -110,7 +111,7 @@ footer a{color:inherit}
           0 = seen but not yet rated.
    Ties keep the order they appear here.
    ====================================================================== */
-const UPDATED = "2026-11-23";
+const UPDATED = "2026-11-25";
 const FILMS = [
  // Seen, ranked
  ["Good Will Hunting","1997-12",9.8],["La La Land","2016-12",9.8],["Inception","2010-07",9.8],
@@ -146,6 +147,14 @@ const FILMS = [
  ["Captain America: Brave New World","2025-02",null],["Spider-Man: Brand New Day","2026-07",null],
  ["The Odyssey","2026-07",null],["Project Hail Mary","2026-03",null]
 ];
+const PLAYS = [
+ // Seen
+ ["The Outsiders","2024-04",0],["Stereophonic","2024-04",0],["The Lion King","1997-11",0],
+ ["Harry Potter and the Cursed Child","2018-04",0],["Cats: The Jellicle Ball","2026-04",0],
+ ["The Book of Mormon","2011-03",0],["Come From Away","2017-03",0],["Burn This","2019-04",0],
+ ["Hamilton","2015-08",0],["Masquerade","2025-10",0],["The Play That Goes Wrong","2017-04",0]
+ // To see
+];
 const BOOKS = [
  // Read, ranked
  ["Greenlights","2020-10",9.2],["The Outsiders","1967-04",9.1],
@@ -169,8 +178,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const fmtRelease=r=>{ if(!r) return ""; const m=/^(\d{4})-(\d{2})/.exec(r); return m?`${MON[+m[2]-1]} ${m[1]}`:r; };
 const relKey=r=>{ const m=/^(\d{4})(-\d{2})?/.exec(r||""); if(m) return m[0]; const y=/(\d+)/.exec(r||""); return y?y[1].padStart(4,"0"):""; };
 const toItems=arr=>arr.map(([title,release,score],i)=>({title,release,score,seen:score!==null,order:i}));
-const DATA={film:toItems(FILMS),book:toItems(BOOKS)};
-const W={film:{todo:"To see",done:"Seen",tallyDone:"seen"},book:{todo:"To read",done:"Read",tallyDone:"read"}};
+const DATA={film:toItems(FILMS),book:toItems(BOOKS),play:toItems(PLAYS)};
+const W={film:{todo:"To see",done:"Seen",tallyDone:"seen"},book:{todo:"To read",done:"Read",tallyDone:"read"},play:{todo:"To see",done:"Seen",tallyDone:"seen"}};
 let tab="film", filter="todo", query="";
 
 { const d=new Date(UPDATED+"T12:00:00"); $("updated").textContent=`${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
@@ -200,8 +209,8 @@ function render(){ $("credit").hidden=tab!=="film"; renderList(); }
 $("q").addEventListener("input",e=>{ query=e.target.value.trim().toLowerCase(); renderList(); });
 function setFilter(f){ filter=f; document.querySelectorAll("#filters button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===f)); }
 $("filters").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; setFilter(b.dataset.f); renderList(); });
-function setTab(t){ tab=t; $("tab-film").setAttribute("aria-selected",t==="film"); $("tab-book").setAttribute("aria-selected",t==="book"); render(); }
-$("tab-film").onclick=()=>setTab("film"); $("tab-book").onclick=()=>setTab("book");
+function setTab(t){ tab=t; $("tab-film").setAttribute("aria-selected",t==="film"); $("tab-book").setAttribute("aria-selected",t==="book"); $("tab-play").setAttribute("aria-selected",t==="play"); render(); }
+$("tab-film").onclick=()=>setTab("film"); $("tab-book").onclick=()=>setTab("book"); $("tab-play").onclick=()=>setTab("play");
 
 render();
 </script>
